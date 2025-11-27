@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>小小公民的大冒险 2.0</title>
+<style>
+    /* ========== 1. 基础设置 ========== */
+    body {
+        font-family: "KaiTi", "楷体", "Microsoft YaHei", sans-serif;
+        background-color: #E0F7FA; /* 更清新的背景色 */
+        color: #333;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        margin: 0;
+        padding: 10px;
+    }
+
+    .game-container {
+        background: white;
+        width: 100%;
+        max-width: 600px;
+        padding: 30px;
+        border-radius: 25px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+        text-align: center;
+        border: 5px solid #4DD0E1;
+        position: relative;
+        overflow: hidden;
+    }
+
+    /* ========== 2. 顶部状态栏 (分数) ========== */
+    .status-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        font-weight: bold;
+        font-size: 1.2em;
+        color: #0097A7;
+    }
+    .star-display {
+        background: #FFF9C4;
+        padding: 5px 15px;
+        border-radius: 20px;
+        border: 2px solid #FBC02D;
+        color: #F57F17;
+    }
+
+    /* ========== 3. 场景与文字 ========== */
+    h2 { color: #F57C00; border-bottom: 2px dashed #eee; padding-bottom: 10px; }
+    
+    .scenario-box {
+        background: #FFF3E0;
+        padding: 20px;
+        border-radius: 15px;
+        text-align: left;
+        margin-bottom: 20px;
+        position: relative;
+    }
+    
+    .scenario-text {
+        font-size: 1.3em;
+        line-height: 1.6;
+    }
+
+    /* 朗读按钮 */
+    .tts-btn {
+        background: none;
+        border: 2px solid #FF9800;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        font-size: 20px;
+        cursor: pointer;
+        color: #FF9800;
+        position: absolute;
+        top: -15px;
+        right: -10px;
+        background-color: white;
+        transition: transform 0.2s;
+    }
+    .tts-btn:hover { transform: scale(1.1); background-color: #FFF3E0; }
+
+    /* ========== 4. 交互按钮 ========== */
+    .btn {
+        display: block;
+        width: 100%;
+        padding: 16px;
+        margin: 15px 0;
+        font-size: 1.1em;
+        border: none;
+        border-radius: 50px;
+        cursor: pointer;
+        transition: transform 0.1s, box-shadow 0.1s;
+        font-family: inherit;
+        font-weight: bold;
+        color: white;
+        box-shadow: 0 5px 0 rgba(0,0,0,0.1); /* 3D效果 */
+    }
+    .btn:active { transform: translateY(4px); box-shadow: none; }
+    
+    .btn-choice { background-color: #42A5F5; }
+    .btn-choice:hover { background-color: #2196F3; }
+
+    .btn-next { background-color: #66BB6A; animation: pulse 2s infinite;}
+    .btn-retry { background-color: #78909C; }
+
+    /* ========== 5. 弹窗 (成功与失败) ========== */
+    .overlay {
+        position: absolute;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(255,255,255,0.95);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 10;
+        padding: 30px;
+        box-sizing: border-box;
+        display: none; /* 默认隐藏 */
+    }
+    .overlay.active { display: flex; animation: zoomIn 0.3s; }
+
+    .value-tag {
+        background: #E8F5E9;
+        color: #2E7D32;
+        padding: 8px 16px;
+        border-radius: 8px;
+        font-weight: bold;
+        display: inline-block;
+        margin-bottom: 15px;
+        border: 1px solid #A5D6A7;
+    }
+    
+    .reflection-box {
+        font-style: italic;
+        color: #555;
+        border-left: 4px solid #4CAF50;
+        padding-left: 15px;
+        margin: 20px 0;
+        text-align: left;
+        background: #f9f9f9;
+        padding: 15px;
+    }
+
+    /* ========== 6. 辅助功能 ========== */
+    details {
+        margin-top: 10px;
+        text-align: left;
+        font-size: 0.9em;
+        color: #777;
+        background: #f1f1f1;
+        padding: 10px;
+        border-radius: 8px;
+    }
+
+    /* 场景切换逻辑 */
+    .scene { display: none; }
+    .scene.active { display: block; animation: slideUp 0.5s; }
+
+    @keyframes slideUp {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes zoomIn {
+        from { opacity: 0; transform: scale(0.9); }
+        to { opacity: 1; transform: scale(1); }
+    }
+    @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.03); }
+        100% { transform: scale(1); }
+    }
+</style>
+</head>
+<body>
+
+<div class="game-container">
+    
+    <div class="status-bar">
+        <span>🦁 小小公民大冒险</span>
+        <div class="star-display">⭐ <span id="score">0</span></div>
+    </div>
+
+    <div id="start-screen" class="scene active">
+        <h1>🌏 公民英雄挑战赛</h1>
+        <div style="font-size: 60px; margin: 20px;">🦸‍♀️🦸‍♂️</div>
+        <p>收集星星，解锁你的英雄勋章！<br>你会做出正确的选择吗？</p>
+        <button class="btn btn-choice" style="background:#FF7043" onclick="startGame()">开始挑战 (Start)</button>
+    </div>
+
+    <div id="q1" class="scene">
+        <h2>第 1 关：操场上的发现</h2>
+        <div class="scenario-box">
+            <button class="tts-btn" onclick="speakText('你在操场上玩耍时，发现草地上有一个钱包。打开一看，里面有五十块钱！周围没有人看到。')">🔊</button>
+            <div class="scenario-text">你在操场上玩耍时，发现草地上有一个钱包。里面有五十块钱，周围没人。</div>
+        </div>
+        <button class="btn btn-choice" onclick="handleCorrect('q2', '诚实 Integrity', '你选择了诚实而不是贪心。', '如果大家都把捡到的东西据为己有，这个世界会变成什么样？')">交给老师或去失物招领处</button>
+        <button class="btn btn-choice" onclick="handleWrong('wrong_q1')">没人看到，我就自己留着吧</button>
+        <details><summary>📖 生词提示</summary>操场 (Playground), 钱包 (Wallet), 失物招领 (Lost & Found)</details>
+    </div>
+
+    <div id="q2" class="scene">
+        <h2>第 2 关：破碎的花瓶</h2>
+        <div class="scenario-box">
+            <button class="tts-btn" onclick="speakText('你在家里踢足球，不小心打破了妈妈最喜欢的花瓶。妈妈回家后问，这是谁打破的？')">🔊</button>
+            <div class="scenario-text">你在家里踢足球，不小心打破了妈妈最喜欢的花瓶。妈妈问：“这是谁打破的？”</div>
+        </div>
+        <button class="btn btn-choice" onclick="handleWrong('wrong_q2')">太害怕了，说是猫打破的</button>
+        <button class="btn btn-choice" onclick="handleCorrect('q3', '勇于承担 Responsibility', '承认错误需要很大的勇气！', '为什么说谎会让事情变得更糟糕？')">承认错误，并说声对不起</button>
+        <details><summary>📖 生词提示</summary>不小心 (Accidentally), 打破 (Break), 承认 (Admit)</details>
+    </div>
+
+    <div id="q3" class="scene">
+        <h2>第 3 关：独自一人的同学</h2>
+        <div class="scenario-box">
+            <button class="tts-btn" onclick="speakText('班上来了一位新同学，他一个人坐在角落里，看起来很孤单。其他的同学都在旁边笑话他。')">🔊</button>
+            <div class="scenario-text">新同学一个人坐在角落里，看起来很孤单。其他的同学都在旁边笑话他。</div>
+        </div>
+        <button class="btn btn-choice" onclick="handleCorrect('q4', '同理心 Empathy', '你让新同学感到了温暖。', '如果是你到了一个新环境，你希望别人怎么对你？')">主动走过去，邀请他一起玩</button>
+        <button class="btn btn-choice" onclick="handleWrong('wrong_q3')">假装没看见，和朋友继续玩</button>
+        <details><summary>📖 生词提示</summary>孤单 (Lonely), 笑话 (Mock), 主动 (Initiative)</details>
+    </div>
+
+    <div id="q4" class="scene">
+        <h2>第 4 关：神秘的网友</h2>
+        <div class="scenario-box">
+            <button class="tts-btn" onclick="speakText('你在玩网络游戏时，一个不认识的好友问你：你住在哪里？告诉我地址，我可以寄礼物给你。')">🔊</button>
+            <div class="scenario-text">网络游戏里的陌生人问：“你住在哪里？告诉我地址，我寄礼物给你。”</div>
+        </div>
+        <button class="btn btn-choice" onclick="handleWrong('wrong_q4')">告诉他地址，我想要礼物</button>
+        <button class="btn btn-choice" onclick="handleCorrect('q5', '网络安全 Cyber Safety', '你保护了自己的隐私安全。', '为什么告诉陌生人地址是一件很危险的事情？')">拒绝回答，并告诉父母</button>
+        <details><summary>📖 生词提示</summary>陌生 (Stranger), 拒绝 (Refuse), 隐私 (Privacy)</details>
+    </div>
+
+    <div id="q5" class="scene">
+        <h2>第 5 关：诱惑时刻</h2>
+        <div class="scenario-box">
+            <button class="tts-btn" onclick="speakText('今晚有很多功课要做，但是朋友打电话来约你现在上线打游戏。')">🔊</button>
+            <div class="scenario-text">今晚有很多功课，但是朋友约你现在上线打游戏。</div>
+        </div>
+        <button class="btn btn-choice" onclick="handleCorrect('q6', '自律 Self-Discipline', '先苦后甜，你战胜了诱惑！', '如果总是把工作拖到最后一刻，会有什么后果？')">先做完功课，再玩游戏</button>
+        <button class="btn btn-choice" onclick="handleWrong('wrong_q5')">先玩一会儿，晚点再赶</button>
+        <details><summary>📖 生词提示</summary>诱惑 (Temptation), 上线 (Online), 自律 (Self-discipline)</details>
+    </div>
+
+    <div id="q6" class="scene">
+        <h2>第 6 关：午餐排队</h2>
+        <div class="scenario-box">
+            <button class="tts-btn" onclick="speakText('食堂买饭的队伍很长。你看到你的好朋友排在最前面，他在向你招手让你过去插队。')">🔊</button>
+            <div class="scenario-text">食堂队伍很长。好朋友排在前面，招手让你过去插队。</div>
+        </div>
+        <button class="btn btn-choice" onclick="handleWrong('wrong_q6')">跑过去插队买饭</button>
+        <button class="btn btn-choice" onclick="handleCorrect('q7', '公平 Fairness', '你尊重了规则，也尊重了他人。', '插队对那些排了很久队的人公平吗？')">摇头拒绝，乖乖排队</button>
+        <details><summary>📖 生词提示</summary>插队 (Cut queue), 尊重 (Respect), 规则 (Rules)</details>
+    </div>
+
+    <div id="q7" class="scene">
+        <h2>第 7 关：地上的空瓶子</h2>
+        <div class="scenario-box">
+            <button class="tts-btn" onclick="speakText('放学回家的路上，你看到地上有一个空塑料瓶，虽然不是你扔的。')">🔊</button>
+            <div class="scenario-text">路上看到一个空塑料瓶，虽然不是你扔的。</div>
+        </div>
+        <button class="btn btn-choice" onclick="handleCorrect('q8', '公德心 Civic Mindedness', '地球因为你而变得更干净了一点。', '如果每个人都觉得“这不是我扔的”，环境会变成怎样？')">捡起来，扔进垃圾桶</button>
+        <button class="btn btn-choice" onclick="handleWrong('wrong_q7')">不关我的事，走开</button>
+        <details><summary>📖 生词提示</summary>塑料瓶 (Plastic bottle), 环境 (Environment)</details>
+    </div>
+
+    <div id="q8" class="scene">
+        <h2>第 8 关：过马路</h2>
+        <div class="scenario-box">
+            <button class="tts-btn" onclick="speakText('上学快迟到了，你看到一位老奶奶站在路边，看起来不敢过马路。')">🔊</button>
+            <div class="scenario-text">快迟到了，看到一位老奶奶不敢过马路。</div>
+        </div>
+        <button class="btn btn-choice" onclick="handleWrong('wrong_q8')">快迟到了，赶紧跑去学校</button>
+        <button class="btn btn-choice" onclick="handleCorrect('end', '关爱 Kindness', '助人为乐是最大的美德。', '迟到可以解释，但帮助别人的机会错过就没有了。')">停下来，扶老奶奶过马路</button>
+        <details><summary>📖 生词提示</summary>迟到 (Late), 扶 (Support/Help)</details>
+    </div>
+
+    <div id="success-overlay" class="overlay">
+        <div style="font-size: 50px;">🌟</div>
+        <h2 style="color: #4CAF50; border: none;">做得很棒！</h2>
+        <div id="success-value" class="value-tag">价值观</div>
+        <p id="success-msg">简单的反馈文字</p>
+        
+        <div class="reflection-box">
+            <strong>🤔 想一想 (Deep Thinking):</strong><br>
+            <span id="success-reflection">这里是反思问题...</span>
+        </div>
+
+        <button class="btn btn-next" onclick="closeSuccessOverlay()">继续挑战 (Next) ➡</button>
+    </div>
+
+    <div id="fail-overlay" class="overlay">
+        <div style="font-size: 50px;">😟</div>
+        <h2 style="color: #FF7043; border: none;">再想一想...</h2>
+        <p id="fail-msg" style="padding: 20px; background: #FFF3E0; border-radius: 10px;">这里是错误反馈。</p>
+        <button class="btn btn-retry" onclick="closeFailOverlay()">再试一次 (Try Again) ↺</button>
+    </div>
+
+    <div id="end" class="scene">
+        <h1>🎉 挑战完成！</h1>
+        <div style="font-size: 60px; margin: 20px;">🏅</div>
+        <p>你总共获得了 <strong id="final-score" style="color:#F57C00; font-size: 1.5em;">0</strong> 颗星星！</p>
+        <div id="badge-title" style="background:#E0F7FA; padding:15px; border-radius:10px; margin:20px 0; color: #006064; font-weight:bold;">
+            正在计算你的勋章...
+        </div>
+        <button class="btn btn-choice" onclick="location.reload()">再玩一次 (Replay)</button>
+    </div>
+
+</div>
+
+<script>
+    let score = 0;
+    let nextSceneTarget = ''; // 暂存下一关的ID
+    
+    // 错误反馈文案
+    const failData = {
+        'wrong_q1': '如果丢钱的人是你，你会多着急呀？诚实意味着即使没人看，也要做对的事。',
+        'wrong_q2': '谎言通常需要更多的谎言来掩盖。妈妈更希望看到一个诚实的孩子，而不是完美的花瓶。',
+        'wrong_q3': '如果你被孤立了，你会很难过吧？真正的朋友会温暖身边的人。',
+        'wrong_q4': '千万不要被礼物诱惑！家庭住址是重要隐私，告诉陌生人非常危险。',
+        'wrong_q5': '如果现在玩，可能会因为没做完功课而焦虑。先把事情做完，玩起来才更开心！',
+        'wrong_q6': '插队对后面排队的人不公平。为了自己的方便而破坏规则是不对的。',
+        'wrong_q7': '虽然不是你扔的，但地球是我们共同的家。不要让垃圾留在地上。',
+        'wrong_q8': '学校迟到可以向老师解释，但老奶奶的安全更重要。这是展现爱心的时刻。'
+    };
+
+    function startGame() {
+        goToScene('q1');
+    }
+
+    // 1. 处理回答正确
+    function handleCorrect(nextSceneId, valueTitle, shortMsg, reflectionQ) {
+        // 增加分数
+        score++;
+        document.getElementById('score').innerText = score;
+
+        // 设置成功弹窗内容
+        document.getElementById('success-value').innerText = valueTitle;
+        document.getElementById('success-msg').innerText = shortMsg;
+        document.getElementById('success-reflection').innerText = reflectionQ;
+        
+        // 记录下一关要去哪里
+        nextSceneTarget = nextSceneId;
+
+        // 显示弹窗
+        document.getElementById('success-overlay').classList.add('active');
+        
+        // 播放简单音效(可选，为了兼容性这里不加Audio对象，仅用视觉反馈)
+    }
+
+    // 2. 关闭成功弹窗，前往下一关
+    function closeSuccessOverlay() {
+        document.getElementById('success-overlay').classList.remove('active');
+        if(nextSceneTarget === 'end') {
+            showEndScreen();
+        } else {
+            goToScene(nextSceneTarget);
+        }
+    }
+
+    // 3. 处理回答错误
+    function handleWrong(failKey) {
+        document.getElementById('fail-msg').innerText = failData[failKey];
+        document.getElementById('fail-overlay').classList.add('active');
+    }
+
+    // 4. 关闭失败弹窗
+    function closeFailOverlay() {
+        document.getElementById('fail-overlay').classList.remove('active');
+    }
+
+    // 5. 场景切换
+    function goToScene(sceneId) {
+        let scenes = document.querySelectorAll('.scene');
+        scenes.forEach(s => s.classList.remove('active'));
+        document.getElementById(sceneId).classList.add('active');
+    }
+
+    // 6. 语音朗读 (Text to Speech)
+    function speakText(text) {
+        // 检查浏览器是否支持
+        if ('speechSynthesis' in window) {
+            let utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'zh-CN'; // 设置为中文
+            utterance.rate = 0.9; // 语速稍慢，适合学生
+            window.speechSynthesis.cancel(); // 停止之前的朗读
+            window.speechSynthesis.speak(utterance);
+        } else {
+            alert("抱歉，您的浏览器不支持语音朗读功能。");
+        }
+    }
+
+    // 7. 结算画面
+    function showEndScreen() {
+        goToScene('end');
+        document.getElementById('final-score').innerText = score;
+        
+        let badge = "";
+        if(score === 8) badge = "🏆 传奇公民英雄 (Legendary Citizen)";
+        else if(score >= 6) badge = "🥈 超级公民 (Super Citizen)";
+        else badge = "🥉 见习小公民 (Junior Citizen)";
+        
+        document.getElementById('badge-title').innerText = "获得称号: " + badge;
+    }
+</script>
+
+</body>
+</html>
